@@ -1,16 +1,18 @@
 import React from 'react';
 import { Heart, Users, Clock, Droplet } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import DonorForm from '../components/DonorForm';
 import useDonors from '../hooks/useDonors';
 
-export default function HomePage({ setPage }) {
+export default function HomePage() {
+  const navigate = useNavigate();
   const { stats, addDonor } = useDonors();
 
   const handleSuccessfulSubmit = (newDonor) => {
     addDonor(newDonor);
     // Auto redirect to dashboard after successful registration
-    setTimeout(() => setPage('dashboard'), 1800);
+    setTimeout(() => navigate('/dashboard'), 1800);
   };
 
   return (
@@ -21,7 +23,7 @@ export default function HomePage({ setPage }) {
           <div className="flex items-center justify-center mb-4">
             <Heart className="w-16 h-16 text-red-600 fill-red-600 animate-pulse" />
           </div>
-          <h1 className="text-5xl font-bold text-gray-800 mb-4">LifeFlow Blood Bank</h1>
+          <h1 className="text-5xl font-bold text-gray-800 mb-4">Sant Nirankari Charitable Foundation (SNCF)</h1>
           <p className="text-xl text-gray-600">Save Lives. Donate Blood. Be a Hero.</p>
         </header>
 
@@ -41,12 +43,12 @@ export default function HomePage({ setPage }) {
 
           {/* Link to Dashboard */}
           <div className="mt-8 text-center">
-            <button
-              onClick={() => setPage('dashboard')}
+            <Link
+              to="/dashboard"
               className="text-red-600 hover:text-red-700 font-semibold underline transition-colors"
             >
               View Donor Dashboard →
-            </button>
+            </Link>
           </div>
         </div>
       </div>

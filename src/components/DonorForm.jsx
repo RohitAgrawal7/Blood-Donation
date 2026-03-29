@@ -4,7 +4,8 @@ import { CheckCircle, AlertCircle } from 'lucide-react';
 export default function DonorForm({ onSubmitSuccess }) {
   const [formData, setFormData] = useState({
     fullName: '', email: '', phone: '', age: '', bloodType: '', address: '',
-    city: '', lastDonation: '', medicalConditions: '', emergencyContact: '', emergencyPhone: ''
+    city: '', lastDonation: '', medicalConditions: '', emergencyContact: '', emergencyPhone: '',
+    gender: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -15,8 +16,8 @@ export default function DonorForm({ onSubmitSuccess }) {
     const newErrors = {};
     if (!formData.fullName.trim() || formData.fullName.length < 3)
       newErrors.fullName = 'Full name must be at least 3 characters';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
+    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // if (!emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
     const phoneRegex = /^\d{10}$/;
     if (!phoneRegex.test(formData.phone.replace(/\D/g, '')))
       newErrors.phone = 'Phone number must be 10 digits';
@@ -24,10 +25,10 @@ export default function DonorForm({ onSubmitSuccess }) {
     if (!age || age < 18 || age > 65) newErrors.age = 'Age must be between 18 and 65';
     if (!formData.bloodType) newErrors.bloodType = 'Please select your blood type';
     if (!formData.city.trim()) newErrors.city = 'City is required';
-    if (formData.emergencyContact.trim().length < 3)
-      newErrors.emergencyContact = 'Emergency contact name is required';
-    if (!phoneRegex.test(formData.emergencyPhone.replace(/\D/g, '')))
-      newErrors.emergencyPhone = 'Emergency phone must be 10 digits';
+    // if (formData.emergencyContact.trim().length < 3)
+    //   newErrors.emergencyContact = 'Emergency contact name is required';
+    // if (!phoneRegex.test(formData.emergencyPhone.replace(/\D/g, '')))
+    //   newErrors.emergencyPhone = 'Emergency phone must be 10 digits';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -82,13 +83,13 @@ export default function DonorForm({ onSubmitSuccess }) {
         </div>
 
         {/* Email */}
-        <div>
+        {/* <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
           <input type="email" name="email" value={formData.email} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="john@example.com" />
           {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-        </div>
+        </div> */}
 
         {/* Phone */}
         <div>
@@ -121,15 +122,27 @@ export default function DonorForm({ onSubmitSuccess }) {
           </select>
           {errors.bloodType && <p className="text-red-500 text-sm mt-1">{errors.bloodType}</p>}
         </div>
+        
+        {/* Gender */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+          <select name="gender" value={formData.gender} onChange={handleChange}
+            className={`w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-red-500 focus:outline-none transition-all`}>
+            <option value="">Prefer not to say</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
 
         {/* City */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">City *</label>
+        {/* <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Area *</label>
           <input type="text" name="city" value={formData.city} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.city ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="Mumbai" />
           {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
-        </div>
+        </div> */}
 
         {/* Address (full width) */}
         <div className="md:col-span-2">
@@ -147,30 +160,30 @@ export default function DonorForm({ onSubmitSuccess }) {
         </div>
 
         {/* Emergency Contact */}
-        <div>
+        {/* <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Emergency Contact Name *</label>
           <input type="text" name="emergencyContact" value={formData.emergencyContact} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.emergencyContact ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="Jane Doe" />
           {errors.emergencyContact && <p className="text-red-500 text-sm mt-1">{errors.emergencyContact}</p>}
-        </div>
+        </div> */}
 
         {/* Emergency Phone */}
-        <div>
+        {/* <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Emergency Phone *</label>
           <input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.emergencyPhone ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="9876543210" />
           {errors.emergencyPhone && <p className="text-red-500 text-sm mt-1">{errors.emergencyPhone}</p>}
-        </div>
+        </div> */}
 
         {/* Medical Conditions (full width) */}
-        <div className="md:col-span-2">
+        {/* <div className="md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Medical Conditions (if any)</label>
           <textarea name="medicalConditions" value={formData.medicalConditions} onChange={handleChange} rows="3"
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-red-500 focus:outline-none transition-all"
             placeholder="List any medical conditions or medications" />
-        </div>
+        </div> */}
       </div>
 
       {/* Submit Button */}

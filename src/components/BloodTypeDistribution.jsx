@@ -2,10 +2,10 @@ import React from 'react';
 
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-export default function BloodTypeDistribution({ byBloodType }) {
+export default function BloodTypeDistribution({ byBloodType, title = 'Blood Type Distribution' }) {
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Blood Type Distribution</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">{title}</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {bloodTypes.map((type) => (
           <div
