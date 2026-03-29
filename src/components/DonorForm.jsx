@@ -136,21 +136,21 @@ export default function DonorForm({ onSubmitSuccess }) {
         </div>
 
         {/* City */}
-        {/* <div>
+        <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Area *</label>
           <input type="text" name="city" value={formData.city} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.city ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="Mumbai" />
           {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
-        </div> */}
+        </div>
 
         {/* Address (full width) */}
-        <div className="md:col-span-2">
+        {/* <div className="md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
           <input type="text" name="address" value={formData.address} onChange={handleChange}
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-red-500 focus:outline-none transition-all"
             placeholder="Street Address" />
-        </div>
+        </div> */}
 
         {/* Last Donation */}
         <div>
