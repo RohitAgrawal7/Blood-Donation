@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
     // tiny delay for UX consistency
     await new Promise((r) => setTimeout(r, 250));
 
-    const ok = login(username, password);
+    const ok = await login(username, password);
     setIsSubmitting(false);
     if (!ok) {
       setError('Invalid admin username or password.');

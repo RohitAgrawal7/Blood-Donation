@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useAdminAuth } from './AdminAuthContext.jsx';
 
-const STORAGE_KEY = 'bloodDonors';
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://localhost:3001';
 
 function normalizeDonor(d) {
   return {
@@ -9,17 +10,7 @@ function normalizeDonor(d) {
     registeredAt: d?.registeredAt || new Date().toISOString(),
   };
 }
-
-function loadInitialDonors() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    if (!Array.isArray(raw)) return [];
-    return raw.map(normalizeDonor);
-  } catch (e) {
-    console.error('Error loading donors:', e);
-    return [];
-  }
-}
+ 
 
 function calculateStats(donorList) {
   // For this project, treat "Today's Registrations" as the same as total registrations
@@ -48,7 +39,6 @@ function calculateStats(donorList) {
     { accepted: 0, rejected: 0, pending: 0 }
   );
 
-  // Gender-based counts (case-insensitive). Donors may omit gender; those are ignored here.
   const male = donorList.reduce((acc, d) => (String(d.gender || '').toLowerCase() === 'male' ? acc + 1 : acc), 0);
   const female = donorList.reduce((acc, d) => (String(d.gender || '').toLowerCase() === 'female' ? acc + 1 : acc), 0);
   const acceptedMale = donorList.reduce(
@@ -76,36 +66,73 @@ function calculateStats(donorList) {
 const DonorsContext = createContext(null);
 
 export function DonorsProvider({ children }) {
-  const [donors, setDonors] = useState(() => loadInitialDonors());
+  // No mock data, no localStorage fallbacks — load from API only
+  const [donors, setDonors] = useState([]);
+  const { token } = useAdminAuth();
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(donors));
-    } catch (e) {
-      console.error('Error saving donors:', e);
-    }
-  }, [donors]);
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/donors`);
+        if (!res.ok) return;
+        const body = await res.json();
+        const list = Array.isArray(body.data) ? body.data : body;
+        if (!mounted) return;
+        setDonors((list || []).map(normalizeDonor));
+      } catch (e) {
+        // API unreachable — keep donors empty (no fallback)
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const stats = useMemo(() => calculateStats(donors), [donors]);
 
-  const addDonor = (newDonor) => {
-    const donor = normalizeDonor({
-      ...newDonor,
-      status: 'pending',
-    });
-    setDonors((prev) => [...prev, donor]);
+  const addDonor = async (newDonor) => {
+    // Only update UI after successful POST
+    try {
+      const payload = {
+        fullName: newDonor.fullName || newDonor.name || 'Donor',
+        phone: newDonor.phone || '0000000000',
+        age: newDonor.age || 30,
+        bloodType: newDonor.bloodType || 'O+',
+        city: newDonor.city || newDonor.address || 'Unknown',
+        address: newDonor.address || '',
+        gender: newDonor.gender || '',
+      };
+      const res = await fetch(`${API_BASE}/api/donors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return null;
+      const saved = await res.json();
+      setDonors((prev) => [normalizeDonor(saved), ...prev]);
+      return saved;
+    } catch (e) {
+      return null;
+    }
   };
 
-  const updateDonorStatus = (id, newStatus) => {
-    setDonors((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
-    );
+  const updateDonorStatus = async (id, newStatus) => {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/api/donors/${id}/status`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) return false;
+      setDonors((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
+      return true;
+    } catch (e) {
+      return false;
+    }
   };
 
-  const value = useMemo(
-    () => ({ donors, stats, addDonor, updateDonorStatus }),
-    [donors, stats]
-  );
+  const value = useMemo(() => ({ donors, stats, addDonor, updateDonorStatus }), [donors, stats, token]);
 
   return <DonorsContext.Provider value={value}>{children}</DonorsContext.Provider>;
 }

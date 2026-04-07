@@ -1,47 +1,50 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
-function getExpectedUsername() {
-  // Recommended: set this in `.env.local` as VITE_ADMIN_USERNAME=...
-  return import.meta.env.VITE_ADMIN_USERNAME || 'Admin@1';
-}
+const AdminAuthContext = createContext(null);
 
-function getExpectedPassword() {
-  // Recommended: set this in `.env.local` as VITE_ADMIN_PASSWORD=...
-  return import.meta.env.VITE_ADMIN_PASSWORD || 'Sukoon@2026';
-}
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://localhost:3001';
 
-function loadInitialIsAdmin() {
+function loadInitialToken() {
   try {
-    // Do not persist admin across reloads — require fresh login every page load.
-    // Returning false ensures the admin login prompt appears after a reload.
-    return false;
+    return sessionStorage.getItem('adminToken') || null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-const AdminAuthContext = createContext(null);
-
 export function AdminAuthProvider({ children }) {
-  const [isAdmin, setIsAdmin] = useState(() => loadInitialIsAdmin());
+  const [token, setToken] = useState(() => loadInitialToken());
 
-  const login = (username, password) => {
-    const expectedUsername = getExpectedUsername();
-    const expected = getExpectedPassword();
-    const ok =
-      String(username || '') === String(expectedUsername) &&
-      String(password || '') === String(expected);
-    if (ok) {
-      setIsAdmin(true);
+  const login = async (username, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) return false;
+      const body = await res.json();
+      const accessToken = body?.accessToken;
+      if (accessToken) {
+        setToken(accessToken);
+        try { sessionStorage.setItem('adminToken', accessToken); } catch {}
+        return true;
+      }
+      return false;
+    } catch (e) {
+      // fallback: no backend reachable
+      return false;
     }
-    return ok;
   };
 
   const logout = () => {
-    setIsAdmin(false);
+    setToken(null);
+    try { sessionStorage.removeItem('adminToken'); } catch {}
   };
 
-  const value = useMemo(() => ({ isAdmin, login, logout }), [isAdmin]);
+  const isAdmin = Boolean(token);
+
+  const value = useMemo(() => ({ isAdmin, token, login, logout }), [isAdmin, token]);
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;
 }
 
