@@ -44,6 +44,6 @@ export class DonorEntity {
   @Column({ type: 'text', default: 'pending' })
   status?: 'pending' | 'accepted' | 'rejected';
 
-  @CreateDateColumn({ type: 'datetime' })
+  @CreateDateColumn()
   registeredAt?: string;
 }
