@@ -30,8 +30,9 @@ function randomInsideDrop() {
   }
   return { x: 50, y: 55 };
 }
+
 // ─── Pre-seed 0 donors (no mock data) ────────────────────────────────────────
-const GOAL = 1000;
+const GOAL = 30;
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, accent = '#c0392b' }) => (
@@ -202,7 +203,7 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive }) => {
           fontFamily="Georgia, serif"
           style={{ transition: 'fill 0.6s ease' }}
         >
-          {Math.round(fillPct)}
+          {Math.round(fillPct)}%
         </text>
         <text
           x="100"
@@ -307,7 +308,7 @@ export default function BloodDropPage() {
     return map;
   }, [backendDonors]);
 
-  const fillPct = Math.min((donors.length), 100);
+  const fillPct = Math.min((donors.length / GOAL) * 100, 100);
   const isGoalReached = donors.length >= GOAL;
 
   const onAddDonor = useCallback(async () => {
@@ -416,10 +417,10 @@ export default function BloodDropPage() {
 
         {/* ── Stats row ── */}
         <div className="fade-up" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', animationDelay: '0.1s' }}>
-          {/* <StatCard label="Donors" value={donors.length} />
+          <StatCard label="Donors" value={donors.length} />
           <StatCard label="Goal" value={GOAL} accent="#555" />
           <StatCard label="Remaining" value={Math.max(GOAL - donors.length, 0)} accent="#e67e22" />
-          <StatCard label="Fill %" value={`${Math.round(fillPct)}%`} /> */}
+          <StatCard label="Fill %" value={`${Math.round(fillPct)}%`} />
           {isGoalReached && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '8px',
@@ -585,8 +586,8 @@ export default function BloodDropPage() {
               <div style={{ fontSize: '20px', marginBottom: '6px' }}>❤️</div>
               <p style={{ fontSize: '13px', color: '#c0392b', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
                 {isGoalReached
-                  ? 'Thank you to all donors — lives will be saved today.'
-                  : `${donors.length} donor${GOAL - donors.length !== 1 ? 's' : ''}.`}
+                  ? 'Goal reached! Thank you to all donors — lives will be saved today.'
+                  : `${GOAL - donors.length} more donor${GOAL - donors.length !== 1 ? 's' : ''} needed to reach the goal.`}
               </p>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from './AdminAuthContext.jsx';
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://blood-donation-production-4948.up.railway.app:3001';
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'https://bd-backend-production.up.railway.app';
 
 function normalizeDonor(d) {
   return {
@@ -100,6 +100,8 @@ export function DonorsProvider({ children }) {
         city: newDonor.city || newDonor.address || 'Unknown',
         address: newDonor.address || '',
         gender: newDonor.gender || '',
+        email: newDonor.email || '',
+        emergencyPhone: newDonor.emergencyPhone || '',
       };
       const res = await fetch(`${API_BASE}/api/donors`, {
         method: 'POST',

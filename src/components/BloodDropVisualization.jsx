@@ -9,8 +9,8 @@ export default function BloodDropVisualization() {
   // Goal can be configured via env: VITE_BLOOD_DROP_GOAL, default to 100
   const GOAL = Number(import.meta.env.VITE_BLOOD_DROP_GOAL || 100);
   const acceptedCount = accepted.length;
-  const fillPercent = Math.min(100, Math.round((acceptedCount / Math.max(1, GOAL)) * 100));
-
+  // const fillPercent = Math.min(100, Math.round((acceptedCount / Math.max(1, GOAL)) * 100));
+  const fillPercent = acceptedCount;
   const dots = useMemo(() => {
     const count = accepted.length;
     if (count === 0) return [];

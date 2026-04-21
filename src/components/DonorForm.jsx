@@ -4,7 +4,7 @@ import { CheckCircle, AlertCircle } from 'lucide-react';
 export default function DonorForm({ onSubmitSuccess }) {
   const [formData, setFormData] = useState({
     fullName: '', email: '', phone: '', age: '', bloodType: '', address: '',
-    city: '', lastDonation: '', medicalConditions: '', emergencyContact: '', emergencyPhone: '',
+    city: '', lastDonation: '', medicalConditions: '', emergencyPhone: '',
     gender: ''
   });
 
@@ -16,8 +16,8 @@ export default function DonorForm({ onSubmitSuccess }) {
     const newErrors = {};
     if (!formData.fullName.trim() || formData.fullName.length < 3)
       newErrors.fullName = 'Full name must be at least 3 characters';
-    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // if (!emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
     const phoneRegex = /^\d{10}$/;
     if (!phoneRegex.test(formData.phone.replace(/\D/g, '')))
       newErrors.phone = 'Phone number must be 10 digits';
@@ -25,10 +25,8 @@ export default function DonorForm({ onSubmitSuccess }) {
     if (!age || age < 18 || age > 65) newErrors.age = 'Age must be between 18 and 65';
     if (!formData.bloodType) newErrors.bloodType = 'Please select your blood type';
     if (!formData.city.trim()) newErrors.city = 'City is required';
-    // if (formData.emergencyContact.trim().length < 3)
-    //   newErrors.emergencyContact = 'Emergency contact name is required';
-    // if (!phoneRegex.test(formData.emergencyPhone.replace(/\D/g, '')))
-    //   newErrors.emergencyPhone = 'Emergency phone must be 10 digits';
+    if (!phoneRegex.test(formData.emergencyPhone.replace(/\D/g, '')))
+      newErrors.emergencyPhone = 'Emergency phone must be 10 digits';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -59,7 +57,7 @@ export default function DonorForm({ onSubmitSuccess }) {
       setSubmitStatus(null);
       setFormData({
         fullName: '', email: '', phone: '', age: '', bloodType: '', address: '',
-        city: '', lastDonation: '', medicalConditions: '', emergencyContact: '', emergencyPhone: ''
+        city: '', lastDonation: '', medicalConditions: '', emergencyPhone: ''
       });
     }, 1500);
   };
@@ -83,13 +81,13 @@ export default function DonorForm({ onSubmitSuccess }) {
         </div>
 
         {/* Email */}
-        {/* <div>
+        <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
           <input type="email" name="email" value={formData.email} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="john@example.com" />
           {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-        </div> */}
+        </div>
 
         {/* Phone */}
         <div>
@@ -131,7 +129,7 @@ export default function DonorForm({ onSubmitSuccess }) {
             <option value="">Prefer not to say</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
-            <option value="Other">Other</option>
+            {/* <option value="Other">Other</option> */}
           </select>
         </div>
 
@@ -169,13 +167,13 @@ export default function DonorForm({ onSubmitSuccess }) {
         </div> */}
 
         {/* Emergency Phone */}
-        {/* <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Emergency Phone *</label>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Whatsapp Number *</label>
           <input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange}
             className={`w-full px-4 py-3 rounded-xl border-2 ${errors.emergencyPhone ? 'border-red-500' : 'border-gray-200'} focus:border-red-500 focus:outline-none transition-all`}
             placeholder="9876543210" />
           {errors.emergencyPhone && <p className="text-red-500 text-sm mt-1">{errors.emergencyPhone}</p>}
-        </div> */}
+        </div>
 
         {/* Medical Conditions (full width) */}
         {/* <div className="md:col-span-2">
