@@ -31,7 +31,7 @@ export class DonorsService {
     qb.orderBy('d.id', 'DESC');
 
     const page = opts.page || 1;
-    const pageSize = opts.pageSize || 10;
+    const pageSize = opts.pageSize || 100;
     qb.skip((page - 1) * pageSize).take(pageSize);
 
     const [data, total] = await qb.getManyAndCount();
