@@ -68,26 +68,95 @@ const DonorsContext = createContext(null);
 export function DonorsProvider({ children }) {
   // No mock data, no localStorage fallbacks — load from API only
   const [donors, setDonors] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState(() => ({
+    total: 0,
+    today: 0,
+    byBloodType: {},
+    acceptedByBloodType: {},
+    accepted: 0,
+    rejected: 0,
+    pending: 0,
+    male: 0,
+    female: 0,
+    acceptedMale: 0,
+    acceptedFemale: 0,
+  }));
   const { token } = useAdminAuth();
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/donors`);
-        if (!res.ok) return;
-        const body = await res.json();
-        const list = Array.isArray(body.data) ? body.data : body;
-        if (!mounted) return;
-        setDonors((list || []).map(normalizeDonor));
-      } catch (e) {
-        // API unreachable — keep donors empty (no fallback)
+  // Load a single page from server. Returns the parsed response or null on error.
+  const loadDonors = async ({ status, page: p = 1, pageSize: ps = 10 } = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (status) qs.set('status', status);
+      qs.set('page', String(p));
+      qs.set('pageSize', String(ps));
+      const url = `${API_BASE}/api/donors?${qs.toString()}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        setError(`Server returned ${res.status}`);
+        setLoading(false);
+        return null;
       }
-    })();
-    return () => { mounted = false; };
-  }, []);
+      const body = await res.json();
+      // API may return { data, total, page, pageSize } or an array
+      const list = Array.isArray(body.data) ? body.data : Array.isArray(body) ? body : (body.data || []);
+      const normalized = (list || []).map(normalizeDonor);
+      setDonors(normalized);
+      setTotal(body.total ?? normalized.length);
+      setPage(body.page ?? p);
+      setPageSize(body.pageSize ?? ps);
+      // If the response contains aggregated stats, use them; otherwise do a lightweight fetch
+      if (body.stats) {
+        setStats(body.stats);
+      }
+      setLoading(false);
+      return body;
+    } catch (e) {
+      setError(String(e));
+      setLoading(false);
+      return null;
+    }
+  };
 
-  const stats = useMemo(() => calculateStats(donors), [donors]);
+  const loadStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/donors/stats`);
+      if (!res.ok) return;
+      const body = await res.json();
+      setStats(body || {});
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Helper to fetch all donors (on-demand) without mutating current provider state.
+  const fetchAllDonors = async (status) => {
+    try {
+      const qs = new URLSearchParams();
+      if (status) qs.set('status', status);
+      // request a large pageSize to retrieve all rows; server will clamp pageSize
+      qs.set('page', '1');
+      qs.set('pageSize', '100000');
+      const url = `${API_BASE}/api/donors?${qs.toString()}`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const body = await res.json();
+      const list = Array.isArray(body.data) ? body.data : Array.isArray(body) ? body : (body.data || []);
+      return (list || []).map(normalizeDonor);
+    } catch (e) {
+      return [];
+    }
+  };
+
+  // Note: `stats` is fetched from server (setStats). calculateStats() remains
+  // available as a local fallback but is not used for the exported `stats`.
 
   const addDonor = async (newDonor) => {
     // Only update UI after successful POST
@@ -110,7 +179,9 @@ export function DonorsProvider({ children }) {
       });
       if (!res.ok) return null;
       const saved = await res.json();
-      setDonors((prev) => [normalizeDonor(saved), ...prev]);
+      // after adding a donor, refresh current page and global stats
+      await loadDonors({ page, pageSize });
+      await loadStats();
       return saved;
     } catch (e) {
       return null;
@@ -126,15 +197,56 @@ export function DonorsProvider({ children }) {
         headers,
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) return false;
-      setDonors((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
+  if (!res.ok) return false;
+      // Try optimistic update; if donor not present on current page, reload page
+      let found = false;
+      setDonors((prev) => prev.map((d) => {
+        if (d.id === id) {
+          found = true;
+          return { ...d, status: newStatus };
+        }
+        return d;
+      }));
+      if (!found) {
+        // reload current page so the change is visible
+        await loadDonors({ page, pageSize });
+      }
+      // refresh global stats after status change
+      await loadStats();
       return true;
     } catch (e) {
       return false;
     }
   };
 
-  const value = useMemo(() => ({ donors, stats, addDonor, updateDonorStatus }), [donors, stats, token]);
+  // Auto-load initial page and stats once on mount
+  useEffect(() => {
+    (async () => {
+      await loadDonors({ page: 1, pageSize });
+      await loadStats();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      donors,
+      stats,
+      addDonor,
+      updateDonorStatus,
+      loadDonors,
+      fetchAllDonors,
+      loadStats,
+      page,
+      pageSize,
+      total,
+      loading,
+      error,
+      setPage,
+      setPageSize,
+    }),
+    [donors, stats, token, page, pageSize, total, loading, error]
+  );
 
   return <DonorsContext.Provider value={value}>{children}</DonorsContext.Provider>;
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { CheckCircle2, Clock3, LogOut, Shield, Users, XCircle, BarChart3, Download, Filter, TrendingUp, Activity } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import useDonors from '../hooks/useDonors.js';
@@ -38,36 +38,37 @@ function StatBlock({ icon: Icon, label, value, colorClass, subtext = null }) {
 }
 
 export default function AdminPanelPage() {
-  const { donors, stats, updateDonorStatus } = useDonors();
+  const {
+    donors,
+    stats,
+    updateDonorStatus,
+    loadDonors,
+    fetchAllDonors,
+    page: providerPage,
+    pageSize: providerPageSize,
+    total,
+  } = useDonors();
   const { logout } = useAdminAuth();
   const [activeStatus, setActiveStatus] = useState('pending');
   const [exportScope, setExportScope] = useState('active'); // 'active' | 'all'
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const [pageSize, setPageSize] = useState(10);
 
-  const filtered = useMemo(() => {
-    const base =
-      activeStatus === 'all'
-        ? donors
-        : donors.filter((d) => (d.status || 'pending') === activeStatus);
-    return base.slice().reverse();
-  }, [donors, activeStatus]);
-
-  const totalRows = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  // Use server-side pagination. `donors` is the current page returned by the server.
+  const totalRows = total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / (pageSize || 10)));
   const currentPage = Math.min(page, totalPages);
-  const paged = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, currentPage, PAGE_SIZE]);
+  const paged = donors || [];
 
   const handleChangeTab = (key) => {
     setActiveStatus(key);
     setPage(1);
+    // request first page for new status
+    loadDonors({ status: key === 'all' ? undefined : key, page: 1, pageSize });
   };
 
   const exportRows = useMemo(() => {
-    const list = exportScope === 'all' ? donors : filtered;
+    const list = donors || [];
     return list.map((d) => ({
       ID: d.id ?? '',
       Name: d.fullName ?? '',
@@ -85,7 +86,7 @@ export default function AdminPanelPage() {
       Status: d.status ?? 'pending',
       RegisteredAt: d.registeredAt ?? '',
     }));
-  }, [donors, filtered, exportScope]);
+  }, [donors, exportScope]);
 
   const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -97,9 +98,25 @@ export default function AdminPanelPage() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-
-  const downloadExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(exportRows);
+  const downloadExcel = async () => {
+    const rows = exportScope === 'all' ? await fetchAllDonors(activeStatus === 'all' ? undefined : activeStatus) : donors;
+    const ws = XLSX.utils.json_to_sheet((rows || []).map((d) => ({
+      ID: d.id ?? '',
+      Name: d.fullName ?? '',
+      Email: d.email ?? '',
+      Phone: d.phone ?? '',
+      Age: d.age ?? '',
+      Gender: d.gender ?? '',
+      BloodType: d.bloodType ?? '',
+      City: d.city ?? '',
+      Address: d.address ?? '',
+      LastDonation: d.lastDonation ?? '',
+      MedicalConditions: d.medicalConditions ?? '',
+      EmergencyContact: d.emergencyContact ?? '',
+      EmergencyPhone: d.emergencyPhone ?? '',
+      Status: d.status ?? 'pending',
+      RegisteredAt: d.registeredAt ?? '',
+    })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Donors');
     const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -109,21 +126,37 @@ export default function AdminPanelPage() {
     downloadBlob(blob, `donors_${exportScope}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const downloadCsv = () => {
-    const ws = XLSX.utils.json_to_sheet(exportRows);
+  const downloadCsv = async () => {
+    const rows = exportScope === 'all' ? await fetchAllDonors(activeStatus === 'all' ? undefined : activeStatus) : donors;
+    const ws = XLSX.utils.json_to_sheet((rows || []).map((d) => ({
+      ID: d.id ?? '',
+      Name: d.fullName ?? '',
+      Email: d.email ?? '',
+      Phone: d.phone ?? '',
+      Age: d.age ?? '',
+      Gender: d.gender ?? '',
+      BloodType: d.bloodType ?? '',
+      City: d.city ?? '',
+      Address: d.address ?? '',
+      LastDonation: d.lastDonation ?? '',
+      MedicalConditions: d.medicalConditions ?? '',
+      EmergencyContact: d.emergencyContact ?? '',
+      EmergencyPhone: d.emergencyPhone ?? '',
+      Status: d.status ?? 'pending',
+      RegisteredAt: d.registeredAt ?? '',
+    })));
     const csv = XLSX.utils.sheet_to_csv(ws);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     downloadBlob(blob, `donors_${exportScope}_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     // Expert UX: print-ready report that users can "Save as PDF" from the browser dialog.
     const title =
       exportScope === 'all'
         ? 'All Donors'
         : `Donors - ${activeStatus.charAt(0).toUpperCase() + activeStatus.slice(1)}`;
-
-    const rows = exportRows;
+    const rows = exportScope === 'all' ? await fetchAllDonors(activeStatus === 'all' ? undefined : activeStatus) : donors;
     const html = `
       <html>
         <head>
@@ -195,6 +228,12 @@ export default function AdminPanelPage() {
     window.open(url, '_blank', 'noopener,noreferrer');
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
+
+  // Ensure we load data whenever the page/status/pageSize change
+  React.useEffect(() => {
+    const s = activeStatus === 'all' ? undefined : activeStatus;
+    loadDonors({ status: s, page, pageSize });
+  }, [activeStatus, page, pageSize]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -380,7 +419,7 @@ export default function AdminPanelPage() {
               </tbody>
             </table>
 
-            {filtered.length === 0 && (
+            {totalRows === 0 && (
               <div className="text-center py-14 text-gray-500">
                 {activeStatus === 'all' ? 'No donors found.' : `No ${activeStatus} requests.`}
               </div>
@@ -388,35 +427,54 @@ export default function AdminPanelPage() {
           </div>
 
           {/* Pagination */}
-          {filtered.length > 0 && (
+          {totalRows > 0 && (
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-4 border-t border-gray-100">
               <div className="text-sm text-gray-600">
                 Showing{' '}
                 <span className="font-semibold">
-                  {(currentPage - 1) * PAGE_SIZE + 1}-
-                  {Math.min(currentPage * PAGE_SIZE, totalRows)}
+                  {(currentPage - 1) * pageSize + 1}-
+                  {Math.min(currentPage * pageSize, totalRows)}
                 </span>{' '}
                 of <span className="font-semibold">{totalRows}</span> donors
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded-lg border text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-600">
-                  Page <span className="font-semibold">{currentPage}</span> of{' '}
-                  <span className="font-semibold">{totalPages}</span>
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 rounded-lg border text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  Next
-                </button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded-lg border text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page <span className="font-semibold">{currentPage}</span> of{' '}
+                    <span className="font-semibold">{totalPages}</span>
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded-lg border text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">Rows:</label>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      const v = Number(e.target.value) || 10;
+                      setPageSize(v);
+                      setPage(1);
+                    }}
+                    className="border rounded-lg px-2 py-1 text-sm"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

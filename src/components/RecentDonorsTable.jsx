@@ -1,7 +1,9 @@
 import React from 'react';
 
 export default function RecentDonorsTable({ donors, updateDonorStatus, showActions = false, className = '' }) {
-  const recent = donors.slice(-10).reverse();
+  // Expect `donors` to be provided as most-recent-first by the provider (server-side paging).
+  // Show up to the first 10 entries.
+  const recent = (donors || []).slice(0, 10);
 
   return (
     <div className={`bg-white rounded-2xl shadow-lg p-8 mt-8 ${className}`}>

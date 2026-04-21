@@ -281,14 +281,15 @@ const DonorRow = ({ donor, isNew }) => (
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BloodDropPage() {
-  const { donors: backendDonors = [], addDonor } = useDonors();
+  const { donors: backendDonors = [], addDonor, fetchAllDonors, stats } = useDonors();
   const [pulseActive, setPulseActive] = useState(false);
   const [newDonorId, setNewDonorId] = useState(null);
   const positionsRef = useRef({}); // map donorId -> { x, y, size }
+  const [acceptedDonors, setAcceptedDonors] = useState([]);
 
   // Map backend donors to UI donors with a deterministic per-id position (generated once)
   const donors = useMemo(() => {
-    const map = backendDonors.map((d) => {
+    const map = (acceptedDonors.length > 0 ? acceptedDonors : backendDonors).map((d) => {
       if (!positionsRef.current[d.id]) {
         const { x, y } = randomInsideDrop();
         positionsRef.current[d.id] = { x, y, size: 3 + Math.random() * 4 };
@@ -305,10 +306,12 @@ export default function BloodDropPage() {
       };
     });
     return map;
-  }, [backendDonors]);
+  }, [backendDonors, acceptedDonors]);
 
-  const fillPct = Math.min((donors.length), 100);
-  const isGoalReached = donors.length >= GOAL;
+  // Fill percent uses server-side accepted count (better source of truth)
+  const acceptedCount = (stats && typeof stats.accepted === 'number') ? stats.accepted : donors.filter((d) => (d.status || 'pending') === 'accepted').length;
+  const fillPct = Math.min((acceptedCount / GOAL) * 100, 100);
+  const isGoalReached = acceptedCount >= GOAL;
 
   const onAddDonor = useCallback(async () => {
     if (donors.length >= GOAL) return;
@@ -340,6 +343,21 @@ export default function BloodDropPage() {
     acc[bt] = donors.filter((d) => d.bloodType === bt).length;
     return acc;
   }, {});
+
+  // Load accepted donors for the visualization (try to fetch a reasonable number)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const list = await fetchAllDonors('accepted');
+        if (!mounted) return;
+        setAcceptedDonors(list.slice(0, 200)); // cap dots to 200 for performance
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, [fetchAllDonors]);
 
   return (
     <div style={{

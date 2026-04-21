@@ -31,7 +31,10 @@ export class DonorsService {
     qb.orderBy('d.id', 'DESC');
 
     const page = opts.page || 1;
-    const pageSize = opts.pageSize || 100;
+    // Server-side pagination defaults to 10 items per page. Only allow typical page sizes
+    // to avoid very large queries being requested accidentally from the client.
+    const allowedPageSizes = [10, 20, 50, 100];
+    const pageSize = allowedPageSizes.includes(Number(opts.pageSize)) ? Number(opts.pageSize) : 10;
     qb.skip((page - 1) * pageSize).take(pageSize);
 
     const [data, total] = await qb.getManyAndCount();
