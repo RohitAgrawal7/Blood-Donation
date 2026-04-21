@@ -11,7 +11,11 @@ export class AuthService {
   async login(username: string, password: string) {
     if (String(username) === String(this.username) && String(password) === String(this.password)) {
       const payload = { sub: username };
-      return jwt.sign(payload, this.secret, { expiresIn: this.expiresIn });
+      return jwt.sign(
+        payload,
+        this.secret as jwt.Secret,
+        { expiresIn: this.expiresIn as jwt.SignOptions['expiresIn'] }
+      );
     }
     return null;
   }
