@@ -235,7 +235,7 @@ Registration Form
    ```
 
 2. **Access Admin Panel**
-   - Open http://localhost:5173
+   - Open http://blood-donation-production-4948.up.railway.app:5173
    - Click navigation to Admin or go to `/admin-login`
    - Enter credentials (Admin@1 / Sukoon@2026)
 

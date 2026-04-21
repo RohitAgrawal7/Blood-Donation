@@ -4,7 +4,7 @@
 
 ```bash
 npm run dev
-# Visit http://localhost:5173
+# Visit http://blood-donation-production-4948.up.railway.app:5173
 # Click Admin → Login with Admin@1 / Sukoon@2026
 ```
 

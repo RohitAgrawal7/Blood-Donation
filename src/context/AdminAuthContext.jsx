@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 
 const AdminAuthContext = createContext(null);
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://localhost:3001';
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://blood-donation-production-4948.up.railway.app:3001';
 
 function loadInitialToken() {
   try {
@@ -14,6 +14,7 @@ function loadInitialToken() {
 
 export function AdminAuthProvider({ children }) {
   const [token, setToken] = useState(() => loadInitialToken());
+
 
   const login = async (username, password) => {
     try {
