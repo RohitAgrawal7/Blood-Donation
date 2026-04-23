@@ -41,6 +41,12 @@ export class DonorEntity {
   @Column({ type: 'text', nullable: true })
   gender?: string;
 
+  @Column({ type: 'text', nullable: true })
+  nirankarType?: 'Nirankar' | 'Non Nirankari';
+
+  @Column({ type: 'text', nullable: true })
+  source?: string;
+
   @Column({ type: 'text', default: 'pending' })
   status?: 'pending' | 'accepted' | 'rejected';
 

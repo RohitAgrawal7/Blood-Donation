@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { DonorsService } from './donors.service';
 import { CreateDonorDto } from './dto/create-donor.dto';
 import { AuthGuard } from '../auth/jwt-auth.guard';
+import { UpdateDonorDto } from './dto/update-donor.dto';
 
 @Controller('donors')
 export class DonorsController {
@@ -21,15 +22,48 @@ export class DonorsController {
   }
 
   @Get()
-  async findAll(@Query('status') status: string, @Query('page') page = '1', @Query('pageSize') pageSize = '10') {
+
+  async findAll(
+    @Query('status') status: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '10',
+    @Query('gender') gender?: string,
+    @Query('nirankarType') nirankarType?: string,
+    @Query('minAge') minAge?: string,
+    @Query('maxAge') maxAge?: string,
+    @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string
+  ) {
     const p = parseInt(page as any, 10) || 1;
     const ps = parseInt(pageSize as any, 10) || 10;
-    return this.donorsService.findAll({ status, page: p, pageSize: ps });
+    const minA = minAge != null ? parseInt(minAge as any, 10) : undefined;
+    const maxA = maxAge != null ? parseInt(maxAge as any, 10) : undefined;
+    return this.donorsService.findAll({
+      status,
+      page: p,
+      pageSize: ps,
+      gender,
+      nirankarType,
+      minAge: Number.isFinite(minA as any) ? (minA as any) : undefined,
+      maxAge: Number.isFinite(maxA as any) ? (maxA as any) : undefined,
+      q,
+      sortBy,
+      sortDir,
+    });
   }
 
   @Get('stats')
   async stats() {
     return this.donorsService.stats();
+  }
+
+  // Lightweight endpoint to keep BloodDrop page perfectly in-sync:
+  // returns acceptedCount + latest accepted donors (ordered by newest first).
+  @Get('accepted/snapshot')
+  async acceptedSnapshot(@Query('limit') limit = '200') {
+    const l = Math.max(1, Math.min(parseInt(limit as any, 10) || 200, 1000));
+    return this.donorsService.acceptedSnapshot(l);
   }
 
   @Get(':id')
@@ -46,6 +80,22 @@ export class DonorsController {
       throw new HttpException('Invalid status', HttpStatus.BAD_REQUEST);
     }
     const ok = await this.donorsService.updateStatus(Number(id), status as any);
+    if (!ok) throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    return { success: true };
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id')
+  async updateDonor(@Param('id') id: string, @Body() payload: UpdateDonorDto) {
+    const updated = await this.donorsService.updateDonor(Number(id), payload);
+    if (!updated) throw new HttpException('Not found', HttpStatus.NOT_FOUND);
+    return updated;
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  async deleteDonor(@Param('id') id: string) {
+    const ok = await this.donorsService.deleteDonor(Number(id));
     if (!ok) throw new HttpException('Not found', HttpStatus.NOT_FOUND);
     return { success: true };
   }

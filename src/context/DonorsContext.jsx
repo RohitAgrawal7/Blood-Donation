@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from './AdminAuthContext.jsx';
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'https://bd-backend-production.up.railway.app';
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://localhost:3001';
+const LOCAL_API_BASE = 'http://localhost:3001';
 
 function normalizeDonor(d) {
   return {
@@ -89,12 +90,30 @@ export function DonorsProvider({ children }) {
   const { token } = useAdminAuth();
 
   // Load a single page from server. Returns the parsed response or null on error.
-  const loadDonors = async ({ status, page: p = 1, pageSize: ps = 10 } = {}) => {
+  const loadDonors = async ({
+    status,
+    page: p = 1,
+    pageSize: ps = 10,
+    gender,
+    nirankarType,
+    minAge,
+    maxAge,
+    q,
+    sortBy,
+    sortDir,
+  } = {}) => {
     setLoading(true);
     setError(null);
     try {
       const qs = new URLSearchParams();
       if (status) qs.set('status', status);
+      if (gender) qs.set('gender', gender);
+      if (nirankarType) qs.set('nirankarType', nirankarType);
+      if (minAge != null && String(minAge).trim() !== '') qs.set('minAge', String(minAge));
+      if (maxAge != null && String(maxAge).trim() !== '') qs.set('maxAge', String(maxAge));
+      if (q) qs.set('q', q);
+      if (sortBy) qs.set('sortBy', sortBy);
+      if (sortDir) qs.set('sortDir', sortDir);
       qs.set('page', String(p));
       qs.set('pageSize', String(ps));
       const url = `${API_BASE}/api/donors?${qs.toString()}`;
@@ -137,13 +156,29 @@ export function DonorsProvider({ children }) {
   };
 
   // Helper to fetch all donors (on-demand) without mutating current provider state.
-  const fetchAllDonors = async (status) => {
+  const fetchAllDonors = async (opts = {}) => {
     try {
       const qs = new URLSearchParams();
+      const status = typeof opts === 'string' ? opts : opts?.status;
+      const gender = typeof opts === 'object' ? opts?.gender : undefined;
+      const nirankarType = typeof opts === 'object' ? opts?.nirankarType : undefined;
+      const minAge = typeof opts === 'object' ? opts?.minAge : undefined;
+      const maxAge = typeof opts === 'object' ? opts?.maxAge : undefined;
+      const q = typeof opts === 'object' ? opts?.q : undefined;
+      const sortBy = typeof opts === 'object' ? opts?.sortBy : undefined;
+      const sortDir = typeof opts === 'object' ? opts?.sortDir : undefined;
+
       if (status) qs.set('status', status);
-      // request a large pageSize to retrieve all rows; server will clamp pageSize
+      if (gender) qs.set('gender', gender);
+      if (nirankarType) qs.set('nirankarType', nirankarType);
+      if (minAge != null && String(minAge).trim() !== '') qs.set('minAge', String(minAge));
+      if (maxAge != null && String(maxAge).trim() !== '') qs.set('maxAge', String(maxAge));
+      if (q) qs.set('q', q);
+      if (sortBy) qs.set('sortBy', sortBy);
+      if (sortDir) qs.set('sortDir', sortDir);
+      // Request a large (but allowed) pageSize. Server clamps to [10, 20, 50, 100].
       qs.set('page', '1');
-      qs.set('pageSize', '100000');
+      qs.set('pageSize', '1000');
       const url = `${API_BASE}/api/donors?${qs.toString()}`;
       const res = await fetch(url);
       if (!res.ok) return [];
@@ -152,6 +187,22 @@ export function DonorsProvider({ children }) {
       return (list || []).map(normalizeDonor);
     } catch (e) {
       return [];
+    }
+  };
+
+  // BloodDrop realtime helper: get acceptedCount + latest accepted donors in one response.
+  const fetchAcceptedSnapshot = async (limit = 200, opts = {}) => {
+    try {
+      const qs = new URLSearchParams();
+      qs.set('limit', String(limit || 200));
+      const res = await fetch(`${API_BASE}/api/donors/accepted/snapshot?${qs.toString()}`, opts);
+      if (!res.ok) return { acceptedCount: 0, donors: [] };
+      const body = await res.json();
+      const donors = Array.isArray(body?.donors) ? body.donors.map(normalizeDonor) : [];
+      const acceptedCount = typeof body?.acceptedCount === 'number' ? body.acceptedCount : Number(body?.acceptedCount || 0);
+      return { acceptedCount: Number.isFinite(acceptedCount) ? acceptedCount : 0, donors };
+    } catch (e) {
+      return { acceptedCount: 0, donors: [] };
     }
   };
 
@@ -171,6 +222,8 @@ export function DonorsProvider({ children }) {
         gender: newDonor.gender || '',
         email: newDonor.email || '',
         emergencyPhone: newDonor.emergencyPhone || '',
+        nirankarType: newDonor.nirankarType || '',
+        source: newDonor.source || '',
       };
       const res = await fetch(`${API_BASE}/api/donors`, {
         method: 'POST',
@@ -219,6 +272,75 @@ export function DonorsProvider({ children }) {
     }
   };
 
+  const updateDonor = async (id, payload) => {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      let res = await fetch(`${API_BASE}/api/donors/${id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(payload || {}),
+      });
+      // Fallback to local backend when deployed API does not yet expose edit endpoint.
+      if (res.status === 404 && API_BASE !== LOCAL_API_BASE) {
+        res = await fetch(`${LOCAL_API_BASE}/api/donors/${id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(payload || {}),
+        });
+      }
+      if (!res.ok) {
+        const message = `Update failed (${res.status}). If status is 404, deploy latest backend or run local backend at ${LOCAL_API_BASE}.`;
+        return { ok: false, error: message };
+      }
+      const updated = await res.json();
+      await loadDonors({ status: activeStatusFromList(donors), page, pageSize });
+      await loadStats();
+      return { ok: true, data: updated };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  };
+
+  const deleteDonor = async (id) => {
+    try {
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      let res = await fetch(`${API_BASE}/api/donors/${id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      // Fallback to local backend when deployed API does not yet expose delete endpoint.
+      if (res.status === 404 && API_BASE !== LOCAL_API_BASE) {
+        res = await fetch(`${LOCAL_API_BASE}/api/donors/${id}`, {
+          method: 'DELETE',
+          headers,
+        });
+      }
+      if (!res.ok) {
+        const message = `Delete failed (${res.status}). If status is 404, deploy latest backend or run local backend at ${LOCAL_API_BASE}.`;
+        return { ok: false, error: message };
+      }
+
+      const nextTotal = Math.max(0, (total || 0) - 1);
+      const nextPages = Math.max(1, Math.ceil(nextTotal / pageSize));
+      const targetPage = Math.min(page, nextPages);
+      await loadDonors({ page: targetPage, pageSize });
+      await loadStats();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  };
+
+  const activeStatusFromList = (list) => {
+    // Best-effort heuristic: if all rows have same status, keep current filter on refresh.
+    if (!Array.isArray(list) || list.length === 0) return undefined;
+    const first = list[0]?.status || 'pending';
+    const same = list.every((d) => (d?.status || 'pending') === first);
+    return same ? first : undefined;
+  };
+
   // Auto-load initial page and stats once on mount
   useEffect(() => {
     (async () => {
@@ -234,8 +356,11 @@ export function DonorsProvider({ children }) {
       stats,
       addDonor,
       updateDonorStatus,
+      updateDonor,
+      deleteDonor,
       loadDonors,
       fetchAllDonors,
+      fetchAcceptedSnapshot,
       loadStats,
       page,
       pageSize,

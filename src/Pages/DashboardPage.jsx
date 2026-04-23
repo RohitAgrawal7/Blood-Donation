@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Clock, Droplet, Heart } from 'lucide-react';
+import { Users, User, UserRound, CheckCircle2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useDonors from '../hooks/useDonors';
 import BloodTypeDistribution from '../components/BloodTypeDistribution';
@@ -20,35 +20,25 @@ export default function DashboardPage() {
 
         {/* Top Stats Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
-          {/* <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
-            <Users className="w-10 h-10 mb-3 opacity-80" />
-            <h3 className="text-3xl font-bold mb-1">{stats.total}</h3>
-            <p className="text-blue-100">Total Donors</p>
-          </div> */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white">
-            <Clock className="w-10 h-10 mb-3 opacity-80" />
-            <h3 className="text-3xl font-bold mb-1">{stats.today}</h3>
-            <p className="text-green-100">Today's Registrations</p>
-          </div>
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
             <Users className="w-10 h-10 mb-3 opacity-80" />
-            <h3 className="text-3xl font-bold mb-1">{stats.total}</h3>
-            <p className="text-blue-100">Total Donors</p>
+            <h3 className="text-3xl font-bold mb-1">{stats.total ?? 0}</h3>
+            <p className="text-blue-100">Total Registrations</p>
           </div>
-          {/* <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white">
-            <Clock className="w-10 h-10 mb-3 opacity-80" />
-            <h3 className="text-3xl font-bold mb-1">{stats.today}</h3>
-            <p className="text-green-100">Today's Registrations</p>
-          </div> */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
-            <Droplet className="w-10 h-10 mb-3 opacity-80" />
-            <h3 className="text-3xl font-bold mb-1">{Object.keys(stats.acceptedByBloodType || {}).length}</h3>
-            <p className="text-purple-100">Blood Types Available (Accepted)</p>
+          <div className="bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl shadow-lg p-6 text-white">
+            <User className="w-10 h-10 mb-3 opacity-80" />
+            <h3 className="text-3xl font-bold mb-1">{stats.male ?? 0}</h3>
+            <p className="text-sky-100">Total Male</p>
           </div>
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-6 text-white">
-            <Heart className="w-10 h-10 mb-3 opacity-80 fill-white" />
-            <h3 className="text-3xl font-bold mb-1">{stats.total * 450}ml</h3>
-            <p className="text-red-100">Potential Blood Volume</p>
+          <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl shadow-lg p-6 text-white">
+            <UserRound className="w-10 h-10 mb-3 opacity-80" />
+            <h3 className="text-3xl font-bold mb-1">{stats.female ?? 0}</h3>
+            <p className="text-pink-100">Total Female</p>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
+            <CheckCircle2 className="w-10 h-10 mb-3 opacity-80" />
+            <h3 className="text-3xl font-bold mb-1">{(stats.acceptedMale ?? 0) + (stats.acceptedFemale ?? 0)}</h3>
+            <p className="text-emerald-100">Total Accepted (M + F)</p>
           </div>
         </div>
 
@@ -56,7 +46,7 @@ export default function DashboardPage() {
         <BloodTypeDistribution byBloodType={stats.byBloodType} />
 
         {/* Recent Donors Table */}
-        <RecentDonorsTable donors={donors} className="mt-8" showActions={false} />
+  <RecentDonorsTable donors={donors} className="mt-8" showActions={false} startIndex={1} />
 
         <div className="mt-8 text-center">
           <Link

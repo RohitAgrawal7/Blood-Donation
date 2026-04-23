@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Users, Clock, Droplet } from 'lucide-react';
+import { Heart, Users, User, UserRound } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import DonorForm from '../components/DonorForm';
@@ -12,7 +12,7 @@ export default function HomePage() {
   const handleSuccessfulSubmit = (newDonor) => {
     addDonor(newDonor);
     // Auto redirect to dashboard after successful registration
-    setTimeout(() => navigate('/dashboard'), 1800);
+    // setTimeout(() => navigate('/dashboard'), 1800);
   };
 
   return (
@@ -29,9 +29,9 @@ export default function HomePage() {
 
         {/* Live Stats Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <StatCard icon={Users} title="Total Registered Donors" value={stats.total} colorClass="text-blue-600" />
-          <StatCard icon={Clock} title="Registrations Today" value={stats.today} colorClass="text-green-600" />
-          <StatCard icon={Droplet} title="Emergency Support" value="24/7" colorClass="text-red-600" />
+          <StatCard icon={Users} title="Total Registrations" value={stats.total ?? 0} colorClass="text-blue-600" />
+          <StatCard icon={User} title="Total Male" value={stats.male ?? 0} colorClass="text-sky-600" />
+          <StatCard icon={UserRound} title="Total Female" value={stats.female ?? 0} colorClass="text-pink-600" />
         </div>
 
         {/* Registration Form Section */}

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function RecentDonorsTable({ donors, updateDonorStatus, showActions = false, className = '' }) {
+export default function RecentDonorsTable({ donors, updateDonorStatus, showActions = false, className = '', startIndex = 1 }) {
   // Expect `donors` to be provided as most-recent-first by the provider (server-side paging).
   // Show up to the first 10 entries.
   const recent = (donors || []).slice(0, 10);
@@ -12,25 +12,39 @@ export default function RecentDonorsTable({ donors, updateDonorStatus, showActio
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-gray-200">
+              <th className="text-left py-3 px-4">Sr. No</th>
               <th className="text-left py-3 px-4">Name</th>
+              <th className="text-left py-3 px-4">Email</th>
+              <th className="text-left py-3 px-4">Age</th>
               <th className="text-left py-3 px-4">Blood Type</th>
               <th className="text-left py-3 px-4">Gender</th>
+              <th className="text-left py-3 px-4">Category</th>
+              <th className="text-left py-3 px-4">Source</th>
               <th className="text-left py-3 px-4">City</th>
+              {/* <th className="text-left py-3 px-4">Address</th> */}
               <th className="text-left py-3 px-4">Contact</th>
-              <th className="text-left py-3 px-4">Registered</th>
+              <th className="text-left py-3 px-4">Whatsapp Number </th>
+              {/* <th className="text-left py-3 px-4">Registered</th> */}
               <th className="text-left py-3 px-4">Status</th>
               {showActions && <th className="text-left py-3 px-4">Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {recent.map(d => (
+            {recent.map((d, i) => (
               <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="py-3 px-4 font-semibold">{startIndex + i}</td>
                 <td className="py-3 px-4">{d.fullName}</td>
+                <td className="py-3 px-4">{d.email || '-'}</td>
+                <td className="py-3 px-4">{d.age || '-'}</td>
                 <td className="py-3 px-4"><span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">{d.bloodType}</span></td>
                 <td className="py-3 px-4">{d.gender ?? '-'}</td>
+                <td className="py-3 px-4">{d.nirankarType || '-'}</td>
+                <td className="py-3 px-4">{d.source || '-'}</td>
                 <td className="py-3 px-4">{d.city}</td>
+                {/* <td className="py-3 px-4 max-w-[220px] truncate" title={d.address || ''}>{d.address || '-'}</td> */}
                 <td className="py-3 px-4">{d.phone}</td>
-                <td className="py-3 px-4 text-sm text-gray-600">{new Date(d.registeredAt).toLocaleString()}</td>
+                <td className="py-3 px-4">{d.emergencyPhone || '-'}</td>
+                {/* <td className="py-3 px-4 text-sm text-gray-600">{new Date(d.registeredAt).toLocaleString()}</td> */}
                 <td className="py-3 px-4">
                   <span className={`px-3 py-1 rounded-full text-sm ${(d.status || 'pending') === 'accepted' ? 'bg-green-100 text-green-700' : (d.status || 'pending') === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     {(d.status || 'pending').charAt(0).toUpperCase() + (d.status || 'pending').slice(1)}

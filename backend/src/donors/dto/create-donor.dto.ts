@@ -11,4 +11,6 @@ export class CreateDonorDto {
   emergencyContact?: string;
   emergencyPhone?: string;
   gender?: string;
+  nirankarType?: 'Nirankar' | 'Non Nirankari';
+  source?: string;
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { CheckCircle2, Clock3, LogOut, Shield, Users, XCircle, BarChart3, Download, Filter, TrendingUp, Activity } from 'lucide-react';
+import { CheckCircle2, Clock3, LogOut, Shield, Users, XCircle, Pencil, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import useDonors from '../hooks/useDonors.js';
 import { useAdminAuth } from '../context/AdminAuthContext.jsx';
@@ -32,6 +32,8 @@ function StatBlock({ icon: Icon, label, value, colorClass, subtext = null }) {
         <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClass} shadow-md`}>
           <Icon className="w-6 h-6 text-white" />
         </div>
+
+        {/* ...existing code... */}
       </div>
     </div>
   );
@@ -42,6 +44,8 @@ export default function AdminPanelPage() {
     donors,
     stats,
     updateDonorStatus,
+    updateDonor,
+    deleteDonor,
     loadDonors,
     fetchAllDonors,
     page: providerPage,
@@ -53,6 +57,32 @@ export default function AdminPanelPage() {
   const [exportScope, setExportScope] = useState('active'); // 'active' | 'all'
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
+  const [nirankarFilter, setNirankarFilter] = useState('');
+  const [minAge, setMinAge] = useState('');
+  const [maxAge, setMaxAge] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDir, setSortDir] = useState('desc');
+  const [editingDonor, setEditingDonor] = useState(null);
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    age: '',
+    bloodType: '',
+    city: '',
+    address: '',
+    gender: '',
+    nirankarType: '',
+    source: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    lastDonation: '',
+    medicalConditions: '',
+  });
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // Use server-side pagination. `donors` is the current page returned by the server.
   const totalRows = total ?? 0;
@@ -60,11 +90,77 @@ export default function AdminPanelPage() {
   const currentPage = Math.min(page, totalPages);
   const paged = donors || [];
 
+  // Debounce search input so we don't spam server while typing.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const queryFilters = useMemo(() => {
+    const s = activeStatus === 'all' ? undefined : activeStatus;
+    return {
+      status: s,
+      gender: genderFilter || undefined,
+      nirankarType: nirankarFilter || undefined,
+      minAge: minAge !== '' ? Number(minAge) : undefined,
+      maxAge: maxAge !== '' ? Number(maxAge) : undefined,
+      q: debouncedSearch || undefined,
+      sortBy: sortBy || undefined,
+      sortDir: sortDir || undefined,
+    };
+  }, [activeStatus, genderFilter, nirankarFilter, minAge, maxAge, debouncedSearch, sortBy, sortDir]);
+
   const handleChangeTab = (key) => {
     setActiveStatus(key);
     setPage(1);
     // request first page for new status
-    loadDonors({ status: key === 'all' ? undefined : key, page: 1, pageSize });
+    loadDonors({ ...queryFilters, status: key === 'all' ? undefined : key, page: 1, pageSize });
+  };
+
+  const beginEdit = (donor) => {
+    setEditingDonor(donor);
+    setEditForm({
+      fullName: donor.fullName || '',
+      email: donor.email || '',
+      phone: donor.phone || '',
+      age: donor.age || '',
+      bloodType: donor.bloodType || '',
+      city: donor.city || '',
+      address: donor.address || '',
+      gender: donor.gender || '',
+      nirankarType: donor.nirankarType || '',
+      source: donor.source || '',
+      emergencyContact: donor.emergencyContact || '',
+      emergencyPhone: donor.emergencyPhone || '',
+      lastDonation: donor.lastDonation || '',
+      medicalConditions: donor.medicalConditions || '',
+    });
+  };
+
+  const submitEdit = async () => {
+    if (!editingDonor) return;
+    setActionLoadingId(`edit-${editingDonor.id}`);
+    const result = await updateDonor(editingDonor.id, {
+      ...editForm,
+      age: editForm.age ? Number(editForm.age) : undefined,
+    });
+    setActionLoadingId(null);
+    if (result?.ok) {
+      setEditingDonor(null);
+      return;
+    }
+    alert(result?.error || 'Failed to update donor. Please check admin login token and try again.');
+  };
+
+  const handleDelete = async (donor) => {
+    const ok = window.confirm(`Delete donor "${donor.fullName}"? This action cannot be undone.`);
+    if (!ok) return;
+    setActionLoadingId(`delete-${donor.id}`);
+    const result = await deleteDonor(donor.id);
+    setActionLoadingId(null);
+    if (!result?.ok) {
+      alert(result?.error || 'Failed to delete donor. Please check admin login token and try again.');
+    }
   };
 
   const exportRows = useMemo(() => {
@@ -76,6 +172,8 @@ export default function AdminPanelPage() {
       Phone: d.phone ?? '',
       Age: d.age ?? '',
       Gender: d.gender ?? '',
+      Category: d.nirankarType ?? '',
+      Source: d.source ?? '',
       BloodType: d.bloodType ?? '',
       City: d.city ?? '',
       Address: d.address ?? '',
@@ -99,7 +197,7 @@ export default function AdminPanelPage() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const downloadExcel = async () => {
-    const rows = exportScope === 'all' ? await fetchAllDonors(activeStatus === 'all' ? undefined : activeStatus) : donors;
+    const rows = exportScope === 'all' ? await fetchAllDonors(queryFilters) : donors;
     const ws = XLSX.utils.json_to_sheet((rows || []).map((d) => ({
       ID: d.id ?? '',
       Name: d.fullName ?? '',
@@ -107,6 +205,8 @@ export default function AdminPanelPage() {
       Phone: d.phone ?? '',
       Age: d.age ?? '',
       Gender: d.gender ?? '',
+      Category: d.nirankarType ?? '',
+      Source: d.source ?? '',
       BloodType: d.bloodType ?? '',
       City: d.city ?? '',
       Address: d.address ?? '',
@@ -127,7 +227,7 @@ export default function AdminPanelPage() {
   };
 
   const downloadCsv = async () => {
-    const rows = exportScope === 'all' ? await fetchAllDonors(activeStatus === 'all' ? undefined : activeStatus) : donors;
+    const rows = exportScope === 'all' ? await fetchAllDonors(queryFilters) : donors;
     const ws = XLSX.utils.json_to_sheet((rows || []).map((d) => ({
       ID: d.id ?? '',
       Name: d.fullName ?? '',
@@ -135,6 +235,8 @@ export default function AdminPanelPage() {
       Phone: d.phone ?? '',
       Age: d.age ?? '',
       Gender: d.gender ?? '',
+      Category: d.nirankarType ?? '',
+      Source: d.source ?? '',
       BloodType: d.bloodType ?? '',
       City: d.city ?? '',
       Address: d.address ?? '',
@@ -156,7 +258,8 @@ export default function AdminPanelPage() {
       exportScope === 'all'
         ? 'All Donors'
         : `Donors - ${activeStatus.charAt(0).toUpperCase() + activeStatus.slice(1)}`;
-    const rows = exportScope === 'all' ? await fetchAllDonors(activeStatus === 'all' ? undefined : activeStatus) : donors;
+    const rows = exportScope === 'all' ? await fetchAllDonors(queryFilters) : donors;
+    const esc = (v) => String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
     const html = `
       <html>
         <head>
@@ -197,17 +300,17 @@ export default function AdminPanelPage() {
             <tbody>
               ${rows
                 .map((r) => {
-                  const status = String(r.Status || 'pending');
+                  const status = String(r.status || 'pending');
                   const cls = status === 'accepted' ? 'accepted' : status === 'rejected' ? 'rejected' : 'pending';
                   return `
                     <tr>
-                      <td>${String(r.Name || '').replaceAll('<', '&lt;')}</td>
-                      <td>${String(r.BloodType || '').replaceAll('<', '&lt;')}</td>
-                      <td>${String(r.City || '').replaceAll('<', '&lt;')}</td>
-                      <td>${String(r.Phone || '').replaceAll('<', '&lt;')}</td>
-                      <td>${String(r.Email || '').replaceAll('<', '&lt;')}</td>
+                      <td>${esc(r.fullName || r.name)}</td>
+                      <td>${esc(r.bloodType)}</td>
+                      <td>${esc(r.city)}</td>
+                      <td>${esc(r.phone)}</td>
+                      <td>${esc(r.email)}</td>
                       <td><span class="badge ${cls}">${status}</span></td>
-                      <td>${String(r.RegisteredAt || '').replaceAll('<', '&lt;')}</td>
+                      <td>${esc(r.registeredAt ? new Date(r.registeredAt).toLocaleString() : '')}</td>
                     </tr>
                   `;
                 })
@@ -229,11 +332,10 @@ export default function AdminPanelPage() {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  // Ensure we load data whenever the page/status/pageSize change
+  // Ensure we load data whenever the page/status/pageSize/filters change
   React.useEffect(() => {
-    const s = activeStatus === 'all' ? undefined : activeStatus;
-    loadDonors({ status: s, page, pageSize });
-  }, [activeStatus, page, pageSize]);
+    loadDonors({ ...queryFilters, page, pageSize });
+  }, [page, pageSize, queryFilters]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -359,33 +461,178 @@ export default function AdminPanelPage() {
             </div>
           </div>
 
+          {/* Filters + search */}
+          <div className="p-6 border-b border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="md:col-span-4">
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search name / phone / email"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <select
+                  value={genderFilter}
+                  onChange={(e) => {
+                    setGenderFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"
+                >
+                  <option value="">Gender (All)</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <select
+                  value={nirankarFilter}
+                  onChange={(e) => {
+                    setNirankarFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"
+                >
+                  <option value="">Category (All)</option>
+                  <option value="Nirankar">Nirankar</option>
+                  <option value="Non Nirankari">Non Nirankari</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-1">
+                <input
+                  value={minAge}
+                  onChange={(e) => {
+                    setMinAge(e.target.value);
+                    setPage(1);
+                  }}
+                  type="number"
+                  min="0"
+                  placeholder="Min age"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold"
+                />
+              </div>
+              <div className="md:col-span-1">
+                <input
+                  value={maxAge}
+                  onChange={(e) => {
+                    setMaxAge(e.target.value);
+                    setPage(1);
+                  }}
+                  type="number"
+                  min="0"
+                  placeholder="Max age"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold"
+                />
+              </div>
+
+              <div className="md:col-span-2 flex gap-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"
+                >
+                  <option value="id">Sort: Newest</option>
+                  <option value="registeredAt">Sort: Registered At</option>
+                  <option value="fullName">Sort: Name</option>
+                  <option value="age">Sort: Age</option>
+                  <option value="city">Sort: City</option>
+                  <option value="bloodType">Sort: Blood Type</option>
+                  <option value="gender">Sort: Gender</option>
+                  <option value="nirankarType">Sort: Category</option>
+                  <option value="source">Sort: Source</option>
+                  <option value="status">Sort: Status</option>
+                </select>
+                <select
+                  value={sortDir}
+                  onChange={(e) => {
+                    setSortDir(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-[130px] border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"
+                >
+                  <option value="desc">Desc</option>
+                  <option value="asc">Asc</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs text-gray-500">
+                Tip: search works across name, phone, and email. Filters apply server-side (accurate + fast).
+              </div>
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setDebouncedSearch('');
+                  setGenderFilter('');
+                  setNirankarFilter('');
+                  setMinAge('');
+                  setMaxAge('');
+                  setSortBy('id');
+                  setSortDir('desc');
+                  setPage(1);
+                }}
+                className="px-3 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:bg-gray-50"
+              >
+                Reset filters
+              </button>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 text-left">
+                  <th className="py-3 px-6">Sr. No</th>
                   <th className="py-3 px-6">Name</th>
+                  <th className="py-3 px-6">Email</th>
+                  <th className="py-3 px-6">Age</th>
                   <th className="py-3 px-6">Blood</th>
+                  <th className="py-3 px-6">Gender</th>
+                  <th className="py-3 px-6">Category</th>
+                  <th className="py-3 px-6">Source</th>
                   <th className="py-3 px-6">City</th>
+                  {/* <th className="py-3 px-6">Address</th> */}
                   <th className="py-3 px-6">Contact</th>
-                  <th className="py-3 px-6">Registered</th>
+                  <th className="py-3 px-6">Emergency</th>
+                  {/* <th className="py-3 px-6">Registered</th> */}
                   <th className="py-3 px-6">Status</th>
                   <th className="py-3 px-6">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {paged.map((d) => (
+                {paged.map((d, idx) => (
                   <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-3 px-6 font-semibold text-gray-900">{(currentPage - 1) * pageSize + idx + 1}</td>
                     <td className="py-3 px-6 font-semibold text-gray-900">{d.fullName}</td>
+                    <td className="py-3 px-6">{d.email || '-'}</td>
+                    <td className="py-3 px-6">{d.age || '-'}</td>
                     <td className="py-3 px-6">
                       <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
                         {d.bloodType}
                       </span>
                     </td>
+                    <td className="py-3 px-6">{d.gender || '-'}</td>
+                    <td className="py-3 px-6">{d.nirankarType || '-'}</td>
+                    <td className="py-3 px-6">{d.source || '-'}</td>
                     <td className="py-3 px-6">{d.city}</td>
+                    {/* <td className="py-3 px-6 max-w-[220px] truncate" title={d.address || ''}>{d.address || '-'}</td> */}
                     <td className="py-3 px-6">{d.phone}</td>
-                    <td className="py-3 px-6 text-sm text-gray-600">
+                    <td className="py-3 px-6">{d.emergencyPhone || '-'}</td>
+                    {/* <td className="py-3 px-6 text-sm text-gray-600">
                       {d.registeredAt ? new Date(d.registeredAt).toLocaleString() : '-'}
-                    </td>
+                    </td> */}
                     <td className="py-3 px-6">
                       <StatusPill status={d.status || 'pending'} />
                     </td>
@@ -412,6 +659,21 @@ export default function AdminPanelPage() {
                         >
                           Reject
                         </button>
+                        <button
+                          onClick={() => beginEdit(d)}
+                          className="px-3 py-2 rounded-xl font-bold text-sm bg-indigo-100 text-indigo-800 hover:bg-indigo-200 inline-flex items-center gap-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(d)}
+                          disabled={actionLoadingId === `delete-${d.id}`}
+                          className="px-3 py-2 rounded-xl font-bold text-sm bg-gray-900 text-white hover:bg-black disabled:opacity-60 inline-flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {actionLoadingId === `delete-${d.id}` ? 'Deleting...' : 'Delete'}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -424,6 +686,57 @@ export default function AdminPanelPage() {
                 {activeStatus === 'all' ? 'No donors found.' : `No ${activeStatus} requests.`}
               </div>
             )}
+                {/* Edit modal moved here so it has access to AdminPanelPage state */}
+                {editingDonor && (
+                  <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-gray-900">Edit Donor</h3>
+                        <button
+                          onClick={() => setEditingDonor(null)}
+                          className="text-sm font-semibold text-gray-500 hover:text-gray-700"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <div className="p-6 grid md:grid-cols-2 gap-4">
+                        <input className="border rounded-xl px-3 py-2" placeholder="Full name" value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Phone" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Age" type="number" value={editForm.age} onChange={(e) => setEditForm((p) => ({ ...p, age: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Blood type" value={editForm.bloodType} onChange={(e) => setEditForm((p) => ({ ...p, bloodType: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Gender" value={editForm.gender} onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))} />
+                        <select className="border rounded-xl px-3 py-2" value={editForm.nirankarType} onChange={(e) => setEditForm((p) => ({ ...p, nirankarType: e.target.value }))}>
+                          <option value="">Category</option>
+                          <option value="Nirankar">Nirankar</option>
+                          <option value="Non Nirankari">Non Nirankari</option>
+                        </select>
+                        <input className="border rounded-xl px-3 py-2" placeholder="Source" value={editForm.source} onChange={(e) => setEditForm((p) => ({ ...p, source: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="City" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Emergency contact" value={editForm.emergencyContact} onChange={(e) => setEditForm((p) => ({ ...p, emergencyContact: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Emergency phone" value={editForm.emergencyPhone} onChange={(e) => setEditForm((p) => ({ ...p, emergencyPhone: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2" placeholder="Last donation" value={editForm.lastDonation} onChange={(e) => setEditForm((p) => ({ ...p, lastDonation: e.target.value }))} />
+                        <input className="border rounded-xl px-3 py-2 md:col-span-2" placeholder="Address" value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
+                        <textarea className="border rounded-xl px-3 py-2 md:col-span-2" rows={3} placeholder="Medical conditions" value={editForm.medicalConditions} onChange={(e) => setEditForm((p) => ({ ...p, medicalConditions: e.target.value }))} />
+                      </div>
+                      <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingDonor(null)}
+                          className="px-4 py-2 rounded-xl border border-gray-200 font-semibold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={submitEdit}
+                          disabled={actionLoadingId === `edit-${editingDonor.id}`}
+                          className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60"
+                        >
+                          {actionLoadingId === `edit-${editingDonor.id}` ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
           </div>
 
           {/* Pagination */}
