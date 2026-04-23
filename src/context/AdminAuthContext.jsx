@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 
 const AdminAuthContext = createContext(null);
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://localhost:3001';
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'https://bd-backend-production.up.railway.app';
 
 function loadInitialToken() {
   try {

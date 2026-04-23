@@ -3,7 +3,7 @@ import useDonors from '../hooks/useDonors.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const BLOOD_TYPES = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'];
-const GOAL = 1000;
+const GOAL = 700;
 
 // ─── The OUTER closed path of the drop (for clip + fill region) ──────────────
 // This traces the full interior area of the calligraphic drop shape.
@@ -549,7 +549,7 @@ export default function BloodDropPage() {
               <div style={{ marginTop: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: '#888', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Progress</span>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#c0392b' }}>{acceptedCount} / {GOAL}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#c0392b' }}>{acceptedCount} </span>
                 </div>
                 <div style={{ height: '8px', borderRadius: '99px', background: '#f0e0e0', overflow: 'hidden' }}>
                   <div style={{
@@ -600,7 +600,7 @@ export default function BloodDropPage() {
             </div>
 
             {/* Blood type breakdown */}
-            <div style={{
+            {/* <div style={{
               background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
               borderRadius: '20px', padding: '20px',
               border: '1px solid rgba(192,57,43,0.1)',
@@ -632,7 +632,7 @@ export default function BloodDropPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* ── RIGHT col: Donor feed ── */}

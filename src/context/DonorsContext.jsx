@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from './AdminAuthContext.jsx';
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://localhost:3001';
-const LOCAL_API_BASE = 'http://localhost:3001';
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || 'https://bd-backend-production.up.railway.app';
+const LOCAL_API_BASE = 'https://bd-backend-production.up.railway.app'
 
 function normalizeDonor(d) {
   return {
