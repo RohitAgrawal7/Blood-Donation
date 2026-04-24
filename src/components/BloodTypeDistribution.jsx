@@ -1,6 +1,6 @@
 import React from 'react';
 
-const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'None'];
 
 export default function BloodTypeDistribution({ byBloodType, title = 'Blood Type Distribution' }) {
   return (

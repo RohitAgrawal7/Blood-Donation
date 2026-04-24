@@ -2,36 +2,23 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import useDonors from '../hooks/useDonors.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const BLOOD_TYPES = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'];
+const BLOOD_TYPES = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'None'];
 const GOAL = 700;
 
-// ─── The OUTER closed path of the drop (for clip + fill region) ──────────────
-// This traces the full interior area of the calligraphic drop shape.
-// Matches the reference: sharp tip at top-center, wide rounded body.
 const DROP_FILL_PATH =
   'M100,18 C96,30 80,55 68,80 C52,110 38,140 38,168 C38,210 65,248 100,252 C135,248 162,210 162,168 C162,140 148,110 132,80 C120,55 104,30 100,18 Z';
 
-// ─── The OUTER stroke path (right side — thinner elegant curve) ───────────────
-// We simulate the calligraphic look using two separate filled paths:
-//   1. Outer shape (full drop area + thick stroke width on left)
-//   2. Inner cutout (slightly smaller — creates the hollow look)
-// Then clip the blood fill inside the inner shape.
-
-// Outer boundary — slightly expanded, especially on the left to mimic thick left stroke
 const DROP_OUTER =
   'M100,8 C97,18 84,42 73,66 C57,96 36,128 34,168 C32,214 64,258 100,262 C136,258 168,214 166,168 C164,128 143,96 127,66 C116,42 103,18 100,8 Z';
 
-// Inner boundary — the hollow cutout inside the calligraphic stroke
 const DROP_INNER =
   'M100,32 C98,42 88,62 79,84 C66,112 55,140 55,168 C55,200 74,232 100,240 C126,232 145,200 145,168 C145,140 134,112 121,84 C112,62 102,42 100,32 Z';
 
-// ─── Rejection sampling inside the INNER (hollow) drop ───────────────────────
 function randomInsideDrop() {
   for (let i = 0; i < 300; i++) {
-    const px = 55 + Math.random() * 90;   // 55–145
-    const py = 32 + Math.random() * 208;  // 32–240
+    const px = 55 + Math.random() * 90;
+    const py = 32 + Math.random() * 208;
     const cx = 100, cy = 155, rx = 44, ry = 88;
-    // Tighter ellipse toward pointed top
     const adjustY = py < cy ? (cy - py) * 0.25 : 0;
     if (Math.pow((px - cx) / rx, 2) + Math.pow((py - cy - adjustY) / ry, 2) <= 0.90) {
       return { x: (px / 200) * 100, y: (py / 270) * 100 };
@@ -40,7 +27,6 @@ function randomInsideDrop() {
   return { x: 70, y: 90 };
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, accent = '#c0392b' }) => (
   <div style={{
     background: 'rgba(255,255,255,0.85)',
@@ -62,18 +48,16 @@ const StatCard = ({ label, value, accent = '#c0392b' }) => (
 );
 
 // ─── Blood Drop SVG Visualization ────────────────────────────────────────────
-const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, registrationCount }) => {
+const BloodDropVisualization = ({ fillPct, pulseActive, acceptedCount, registrationCount }) => {
   const fillClipId   = 'innerDropClip';
   const strokeGradId = 'strokeGrad';
   const fillGradId   = 'fillGrad';
   const shadowId     = 'dropShadow';
   const shimmerGrad  = 'shimmerGrad';
 
-  // Blood fill top Y inside SVG coordinate system (viewBox 0 0 200 290)
-  // The fillable region is from y=32 (top of inner) to y=240 (bottom of inner) = 208px tall
   const FILL_TOP    = 32;
   const FILL_BOTTOM = 242;
-  const FILL_HEIGHT = FILL_BOTTOM - FILL_TOP; // 210
+  const FILL_HEIGHT = FILL_BOTTOM - FILL_TOP;
   const fillY       = FILL_BOTTOM - (FILL_HEIGHT * fillPct) / 100;
 
   return (
@@ -90,52 +74,40 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
         }}
       >
         <defs>
-          {/* ── Gradient for the calligraphic stroke: bright red top → dark crimson bottom ── */}
           <linearGradient id={strokeGradId} x1="0.5" y1="0" x2="0.3" y2="1" gradientUnits="objectBoundingBox">
             <stop offset="0%"   stopColor="#e81010" />
             <stop offset="40%"  stopColor="#c0392b" />
             <stop offset="100%" stopColor="#6b0000" />
           </linearGradient>
 
-          {/* ── Blood fill gradient ── */}
           <linearGradient id={fillGradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor="#e74c3c" />
             <stop offset="100%" stopColor="#8b0000" />
           </linearGradient>
 
-          {/* ── Shimmer on blood surface ── */}
           <linearGradient id={shimmerGrad} x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%"   stopColor="rgba(255,255,255,0)" />
             <stop offset="45%"  stopColor="rgba(255,255,255,0.22)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0)" />
           </linearGradient>
 
-          {/* ── Drop shadow filter ── */}
           <filter id={shadowId} x="-30%" y="-10%" width="160%" height="140%">
             <feDropShadow dx="0" dy="12" stdDeviation="10" floodColor="rgba(180,0,0,0.28)" />
           </filter>
 
-          {/* ── Clip to inner drop hollow for blood fill ── */}
           <clipPath id={fillClipId}>
             <path d={DROP_INNER} />
           </clipPath>
         </defs>
 
-        {/* ══════════════════════════════════════════════════
-            THE DROP SHAPE — calligraphic stroke look
-            Technique: Outer filled shape MINUS inner cutout
-            using SVG fill-rule="evenodd"
-        ══════════════════════════════════════════════════ */}
-
-        {/* ── Soft drop shadow beneath the whole shape ── */}
+        {/* Soft shadow beneath drop */}
         <ellipse
           cx="100" cy="270" rx="52" ry="10"
           fill="rgba(180,0,0,0.18)"
           style={{ filter: 'blur(6px)' }}
         />
 
-        {/* ── Main calligraphic stroke body ──
-            evenodd fill-rule: outer path filled, inner path punched out → hollow ring */}
+        {/* Calligraphic stroke body */}
         <path
           d={`${DROP_OUTER} ${DROP_INNER}`}
           fillRule="evenodd"
@@ -143,9 +115,7 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
           filter={`url(#${shadowId})`}
         />
 
-        {/* ══════════════════════════════════════════════════
-            BLOOD FILL — rises from bottom inside the hollow
-        ══════════════════════════════════════════════════ */}
+        {/* Blood fill clipped to inner drop */}
         <g clipPath={`url(#${fillClipId})`}>
           {/* Empty background tint */}
           <rect x="0" y="0" width="200" height="300" fill="rgba(255,220,220,0.15)" />
@@ -162,7 +132,7 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
             }}
           />
 
-          {/* Shimmer on blood */}
+          {/* Shimmer on blood surface */}
           {fillPct > 2 && (
             <rect
               x="0"
@@ -185,33 +155,9 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
               style={{ transition: 'cy 1.2s ease' }}
             />
           )}
-
-          {/* ── Donor dots — only render inside filled region ── */}
-          {donors.map((d) => {
-            const dotX  = (d.x / 100) * 200;
-            const dotY  = (d.y / 100) * 270;
-            if (dotY < fillY) return null;
-            return (
-              <g key={d.id}>
-                <circle cx={dotX} cy={dotY} r={d.size + 2} fill="rgba(255,255,255,0.12)" />
-                <circle
-                  cx={dotX} cy={dotY} r={d.size}
-                  fill="rgba(255,255,255,0.88)"
-                  stroke="rgba(139,0,0,0.35)" strokeWidth="1.4"
-                >
-                  <animate attributeName="r"
-                    values={`${d.size};${d.size + 1.5};${d.size}`}
-                    dur={`${2 + Math.random() * 2}s`} repeatCount="indefinite" />
-                  <animate attributeName="opacity"
-                    values="0.85;1;0.85"
-                    dur={`${2 + Math.random() * 2}s`} repeatCount="indefinite" />
-                </circle>
-              </g>
-            );
-          })}
         </g>
 
-        {/* ── Redraw the stroke on top so it sits above the blood fill ── */}
+        {/* Stroke redrawn on top of blood fill */}
         <path
           d={`${DROP_OUTER} ${DROP_INNER}`}
           fillRule="evenodd"
@@ -219,7 +165,7 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
           opacity="0.92"
         />
 
-        {/* ── Highlight glint on left curve (calligraphic sheen) ── */}
+        {/* Highlight glint on left curve */}
         <path
           d="M100,14 C97,24 88,46 80,68 C70,92 60,120 58,148"
           fill="none"
@@ -228,13 +174,13 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
           strokeLinecap="round"
         />
 
-        {/* ── Live registration count label ── */}
+        {/* Accepted count label */}
         <text
           x="100" y="158"
           textAnchor="middle" dominantBaseline="middle"
           fontSize={String(acceptedCount).length > 3 ? '22' : '28'}
           fontWeight="800"
-          fill={fillPct > 50 ? 'white' : '#c0392b'}
+          fill="#fcfbfbff"
           fontFamily="Georgia, serif"
           style={{ transition: 'fill 0.6s ease' }}
         >
@@ -244,15 +190,15 @@ const BloodDropVisualization = ({ donors, fillPct, pulseActive, acceptedCount, r
           x="100" y="180"
           textAnchor="middle" dominantBaseline="middle"
           fontSize="9" fontWeight="700"
-          fill={fillPct > 50 ? 'rgba(255,255,255,0.85)' : '#e74c3c'}
+          fill={fillPct > 50 ? 'rgba(255, 253, 253, 1)' : '#fa0303ff'}
           letterSpacing="1.8"
           fontFamily="sans-serif"
           style={{ transition: 'fill 0.6s ease' }}
         >
-          ACCEPTED
+          DONORS
         </text>
 
-        {/* ── Pulse ring on new donor ── */}
+        {/* Pulse ring on new donor */}
         {pulseActive && (
           <circle cx="100" cy="158" r="28" fill="none" stroke="rgba(231,76,60,0.55)" strokeWidth="2">
             <animate attributeName="r" values="28;70" dur="0.7s" fill="freeze" />
@@ -288,7 +234,7 @@ const DonorRow = ({ donor, isNew }) => (
       {donor.bloodType}
     </div>
     <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: '20px', fontWeight: 600, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {donor.name}
       </div>
       <div style={{ fontSize: '11px', color: '#999', marginTop: '1px' }}>{donor.time}</div>
@@ -318,7 +264,6 @@ export default function BloodDropPage() {
     return (acceptedDonors.length > 0 ? acceptedDonors : backendDonors).map((d) => {
       if (!positionsRef.current[d.id]) {
         const { x, y } = randomInsideDrop();
-        // Slightly smaller dots + stronger outline = more visible spacing.
         positionsRef.current[d.id] = { x, y, size: 2.5 + Math.random() * 3.5 };
       }
       const pos = positionsRef.current[d.id];
@@ -334,7 +279,6 @@ export default function BloodDropPage() {
     });
   }, [backendDonors, acceptedDonors]);
 
-  // Sidebar should show only the last 10 accepted donors (most recent first).
   const acceptedFeed = useMemo(() => {
     const list = Array.isArray(acceptedDonors) ? acceptedDonors : [];
     return list.slice(0, 10).map((d) => ({
@@ -347,13 +291,11 @@ export default function BloodDropPage() {
     }));
   }, [acceptedDonors]);
 
-  // Accepted count is the source of truth for the blood fill.
-  const acceptedCount = acceptedCountLive;
+  const acceptedCount      = acceptedCountLive;
   const registrationCount  = typeof stats?.total === 'number' ? stats.total : (typeof total === 'number' ? total : backendDonors.length);
   const fillPct            = Math.min((acceptedCount / GOAL) * 100, 100);
   const isGoalReached      = acceptedCount >= GOAL;
 
-  // Animate/pulse whenever accepted count changes (including live backend sync).
   useEffect(() => {
     if (prevAcceptedCountRef.current == null) {
       prevAcceptedCountRef.current = acceptedCount;
@@ -392,9 +334,6 @@ export default function BloodDropPage() {
     return acc;
   }, {});
 
-  
-
-  // Real-time accepted snapshot: count + donors together (perfectly in-sync).
   useEffect(() => {
     let mounted = true;
     let running = false;
@@ -427,25 +366,14 @@ export default function BloodDropPage() {
     };
   }, [fetchAcceptedSnapshot]);
 
-  // Stats refresh (for total registrations, blood-type cards). Can be slower.
   useEffect(() => {
     let mounted = true;
     const tick = async () => {
-      try {
-        await loadStats();
-      } catch (e) {
-        // ignore
-      }
+      try { await loadStats(); } catch (e) { /* ignore */ }
     };
     tick();
-    const id = setInterval(() => {
-      if (!mounted) return;
-      tick();
-    }, 5000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
+    const id = setInterval(() => { if (mounted) tick(); }, 5000);
+    return () => { mounted = false; clearInterval(id); };
   }, [loadStats]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -456,7 +384,6 @@ export default function BloodDropPage() {
       fontFamily: '"Helvetica Neue", Arial, sans-serif',
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* Background decoration */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
         background: 'radial-gradient(ellipse at 80% 20%, rgba(231,76,60,0.06) 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, rgba(192,57,43,0.05) 0%, transparent 55%)',
@@ -538,7 +465,6 @@ export default function BloodDropPage() {
               boxShadow: '0 8px 40px rgba(180,0,0,0.08)',
             }}>
               <BloodDropVisualization
-                donors={donors}
                 fillPct={fillPct}
                 pulseActive={pulseActive}
                 acceptedCount={acceptedCount}
@@ -549,7 +475,7 @@ export default function BloodDropPage() {
               <div style={{ marginTop: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 600, color: '#888', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Progress</span>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#c0392b' }}>{acceptedCount} </span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#c0392b' }}>{acceptedCount}</span>
                 </div>
                 <div style={{ height: '8px', borderRadius: '99px', background: '#f0e0e0', overflow: 'hidden' }}>
                   <div style={{
@@ -599,40 +525,8 @@ export default function BloodDropPage() {
               </button>
             </div>
 
-            {/* Blood type breakdown */}
-            {/* <div style={{
-              background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
-              borderRadius: '20px', padding: '20px',
-              border: '1px solid rgba(192,57,43,0.1)',
-              boxShadow: '0 4px 20px rgba(180,0,0,0.06)',
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', color: '#999', textTransform: 'uppercase', marginBottom: '14px' }}>
-                Blood Type Breakdown
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                {BLOOD_TYPES.map((bt) => (
-                  <div key={bt} style={{ textAlign: 'center' }}>
-                    <div style={{
-                      fontSize: '18px', fontWeight: 800,
-                      color: bloodTypeStats[bt] > 0 ? '#c0392b' : '#ddd',
-                      fontFamily: 'Georgia, serif', lineHeight: 1, transition: 'color 0.3s',
-                    }}>
-                      {bloodTypeStats[bt] || 0}
-                    </div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#aaa', marginTop: '2px', letterSpacing: '0.05em' }}>
-                      {bt}
-                    </div>
-                    <div style={{
-                      height: '3px', borderRadius: '99px', marginTop: '4px',
-                      background: bloodTypeStats[bt] > 0
-                        ? `rgba(192,57,43,${Math.min(bloodTypeStats[bt] / 5, 1)})`
-                        : '#f0f0f0',
-                      transition: 'background 0.5s',
-                    }} />
-                  </div>
-                ))}
-              </div>
-            </div> */}
+            {/* Blood type breakdown — commented out as in original */}
+            {/* <div style={{ ... }}> ... </div> */}
           </div>
 
           {/* ── RIGHT col: Donor feed ── */}
@@ -682,7 +576,7 @@ export default function BloodDropPage() {
               textAlign: 'center',
             }}>
               <div style={{ fontSize: '20px', marginBottom: '6px' }}>❤️</div>
-              <p style={{ fontSize: '13px', color: '#c0392b', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
+              <p style={{ fontSize: '18px', color: '#c0392b', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
                 {isGoalReached
                   ? 'Thank you to all donors — lives will be saved today.'
                   : `${registrationCount} registration${registrationCount === 1 ? '' : 's'} synced live.`}

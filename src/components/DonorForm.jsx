@@ -31,6 +31,7 @@ export default function DonorForm({ onSubmitSuccess }) {
     if (!formData.city.trim()) newErrors.city = 'City is required';
     if (!phoneRegex.test(formData.emergencyPhone.replace(/\D/g, '')))
       newErrors.emergencyPhone = 'Emergency phone must be 10 digits';
+    if(!formData.gender) newErrors.gender = 'Please select your gender';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -121,9 +122,9 @@ export default function DonorForm({ onSubmitSuccess }) {
             <option value="A+">A+</option><option value="A-">A-</option>
             <option value="B+">B+</option><option value="B-">B-</option>
             <option value="AB+">AB+</option><option value="AB-">AB-</option>
-            <option value="O+">O+</option><option value="O-">O-</option>
+            <option value="O+">O+</option><option value="O-">O-</option><option value="None">None</option>
           </select>
-          {errors.bloodType && <p className="text-red-500 text-sm mt-1">{errors.bloodType}</p>}
+        
         </div>
         
         {/* Gender */}
@@ -135,7 +136,10 @@ export default function DonorForm({ onSubmitSuccess }) {
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             {/* <option value="Other">Other</option> */}
+            
           </select>
+              {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
+
         </div>
 
         {/* Nirankar Type */}
@@ -148,7 +152,7 @@ export default function DonorForm({ onSubmitSuccess }) {
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-red-500 focus:outline-none transition-all"
           >
             <option value="">Select</option>
-            <option value="Nirankar">Nirankar</option>
+            <option value="Nirankar">Nirankari</option>
             <option value="Non Nirankari">Non Nirankari</option>
           </select>
         </div>
